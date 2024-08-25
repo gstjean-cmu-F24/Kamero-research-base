@@ -68,6 +68,7 @@ exports.manageUsers = async (req, res) => {
  * @returns {void}
  */
 
+
 exports.manageInstitutions = async (req, res) => {
     const { action, id, name, address } = req.body;
 
