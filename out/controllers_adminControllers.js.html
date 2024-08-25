@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Source: controllers/adminControllers.js</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Source: controllers/adminControllers.js</h1>
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>const bcrypt = require('bcryptjs');
+const userModel = require('../models/userModel');
+const institutionModel = require('../models/institutionModel');
+const researchTopicModel = require('../models/researchTopicModel');
+const analyticsModel = require('../models/analyticsModel');
+
+
+
+/**
+ * Manage users by performing CRUD operations.
+ *
+ * @param {Object} req - The request object.
+ * @param {string} req.body.action - The action to perform: 'create', 'read', 'update', 'delete'.
+ * @param {string} [req.body.id] - The ID of the user (required for 'read', 'update', and 'delete').
+ * @param {string} [req.body.username] - The username of the user (required for 'create' and 'update').
+ * @param {string} [req.body.password] - The password of the user (required for 'create' and 'update').
+ * @param {string} [req.body.role] - The role of the user (required for 'create' and 'update').
+ * @param {string} [req.body.institutionId] - The institution ID of the user (required for 'create' and 'update').
+ * @param {Object} res - The response object.
+ * @returns {void}
+ */
+
+exports.manageUsers = async (req, res) => {
+    const { action, id, username, password, role, institutionId } = req.body;
+
+    try {
+        let result;
+        switch(action) {
+            case 'create':
+                const hashedPassword = await bcrypt.hash(password, 10);
+                result = await userModel.createUser(username, hashedPassword, role, institutionId);
+                res.status(201).json(result);
+                break;
+            case 'read':
+                result = await userModel.getUserById(id);
+                if (!result) {
+                    return res.status(404).json({ message: 'User not found' });
+                }
+                res.status(200).json(result);
+                break;
+            case 'update':
+                const hashedPasswordUpdate = await bcrypt.hash(password, 10);
+                result = await userModel.updateUser(id, username, hashedPasswordUpdate, role, institutionId);
+                res.status(200).json(result);
+                break;
+            case 'delete':
+                await userModel.deleteUser(id);
+                res.status(204).send();
+                break;
+            default:
+                res.status(400).json({ message: 'Invalid action' });
+        }
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+
+/**
+ * Manage institutions by performing CRUD operations.
+ *
+ * @param {Object} req - The request object.
+ * @param {string} req.body.action - The action to perform: 'create', 'read', 'update', 'delete'.
+ * @param {string} [req.body.id] - The ID of the institution (required for 'read', 'update', and 'delete').
+ * @param {string} [req.body.name] - The name of the institution (required for 'create' and 'update').
+ * @param {string} [req.body.address] - The address of the institution (required for 'create' and 'update').
+ * @param {Object} res - The response object.
+ * @returns {void}
+ */
+exports.manageInstitutions = async (req, res) => {
+    const { action, id, name, address } = req.body;
+
+    try {
+        let result;
+        switch(action) {
+            case 'create':
+                result = await institutionModel.createInstitution(name, address);
+                res.status(201).json(result);
+                break;
+            case 'read':
+                result = await institutionModel.getInstitutionById(id);
+                if (!result) {
+                    return res.status(404).json({ message: 'Institution not found' });
+                }
+                res.status(200).json(result);
+                break;
+            case 'update':
+                result = await institutionModel.updateInstitution(id, name, address);
+                res.status(200).json(result);
+                break;
+            case 'delete':
+                await institutionModel.deleteInstitution(id);
+                res.status(204).send();
+                break;
+            default:
+                res.status(400).json({ message: 'Invalid action' });
+        }
+    } catch (error) {
+        res.status(500).json({ message: error.message});
+    }
+};
+
+
+/**
+ * Manage research topics by performing CRUD operations.
+ *
+ * @param {Object} req - The request object.
+ * @param {string} req.body.action - The action to perform: 'create', 'read', 'update', 'delete'.
+ * @param {string} [req.body.id] - The ID of the research topic (required for 'read', 'update', and 'delete').
+ * @param {string} [req.body.title] - The title of the research topic (required for 'create' and 'update').
+ * @param {string} [req.body.description] - The description of the research topic (required for 'create' and 'update').
+ * @param {string[]} [req.body.tags] - The tags associated with the research topic (required for 'create' and 'update').
+ * @param {Object} res - The response object.
+ * @returns {void}
+ */
+
+exports.manageResearchTopics = async (req, res) => {
+    const { action, id, title, description, tags } = req.body;
+
+    try {
+        let result;
+        switch(action) {
+            case 'create':
+                result = await researchTopicModel.createResearchTopic(title, description, tags);
+                res.status(201).json(result);
+                break;
+            case 'read':
+                result = await researchTopicModel.getResearchTopicById(id);
+                if (!result) {
+                    return res.status(404).json({ message: 'Research topic not found' });
+                }
+                res.status(200).json(result);
+                break;
+            case 'update':
+                result = await researchTopicModel.updateResearchTopic(id, title, description, tags);
+                res.status(200).json(result);
+                break;
+            case 'delete':
+                await researchTopicModel.deleteResearchTopic(id);
+                res.status(204).send();
+                break;
+            default:
+                res.status(400).json({ message: 'Invalid action' });
+        }
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+/**
+ * View system analytics including user activity and research access stats.
+ *
+ * @param {Object} req - The request object.
+ * @param {Object} res - The response object.
+ * @returns {void}
+ */
+
+exports.viewSystemAnalytics = async (req, res) => {
+    try {
+        const userActivityStats = await analyticsModel.getUserActivityStats();
+        const researchAccessStats = await analyticsModel.getResearchAccessStats();
+
+        res.status(200).json({
+            userActivityStats,
+            researchAccessStats
+        });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Global</h3><ul><li><a href="global.html#createInstitution">createInstitution</a></li><li><a href="global.html#createResearchTopic">createResearchTopic</a></li><li><a href="global.html#createUser">createUser</a></li><li><a href="global.html#deleteInstitution">deleteInstitution</a></li><li><a href="global.html#deleteResearchTopic">deleteResearchTopic</a></li><li><a href="global.html#deleteUser">deleteUser</a></li><li><a href="global.html#forgotPassword">forgotPassword</a></li><li><a href="global.html#getInstitutionById">getInstitutionById</a></li><li><a href="global.html#getResearchAccessStats">getResearchAccessStats</a></li><li><a href="global.html#getResearchTopicById">getResearchTopicById</a></li><li><a href="global.html#getUserActivityStats">getUserActivityStats</a></li><li><a href="global.html#getUserById">getUserById</a></li><li><a href="global.html#login">login</a></li><li><a href="global.html#manageInstitutions">manageInstitutions</a></li><li><a href="global.html#manageResearchTopics">manageResearchTopics</a></li><li><a href="global.html#manageUsers">manageUsers</a></li><li><a href="global.html#register">register</a></li><li><a href="global.html#resetPassword">resetPassword</a></li><li><a href="global.html#updateInstitution">updateInstitution</a></li><li><a href="global.html#updateResearchTopic">updateResearchTopic</a></li><li><a href="global.html#updateUser">updateUser</a></li><li><a href="global.html#viewSystemAnalytics">viewSystemAnalytics</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 4.0.3</a> on Mon Jun 24 2024 22:19:04 GMT+0200 (Central Africa Time)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>

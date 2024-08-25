@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Source: controllers/authController.js</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Source: controllers/authController.js</h1>
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const pool = require('../db');
+const crypto = require('crypto');
+
+
+/**
+ * Handles the forgot password functionality.
+ *
+ * @param {Object} req - The request object.
+ * @param {string} req.body.email - The email of the user who forgot their password.
+ * @param {Object} res - The response object.
+ * @returns {void}
+ */
+exports.forgotPassword = async (req, res) => {
+    const { email } = req.body;
+    try {
+        const user = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+        if (user.rows.length === 0) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        const resetToken = crypto.randomBytes(32).toString('hex');
+        const resetTokenHash = await bcrypt.hash(resetToken, 10);
+        const resetTokenExpiry = Date.now() + 3600000; // 1 hour
+
+        await pool.query(
+            'UPDATE users SET reset_password_token = $1, reset_password_expires = $2 WHERE id = $3',
+            [resetTokenHash, resetTokenExpiry, user.rows[0].id]
+        );
+
+        // Here, you would normally send the resetToken via email to the user
+        res.status(200).json({ message: 'Password reset token generated', resetToken });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+
+/**
+ * Handles the reset password functionality.
+ *
+ * @param {Object} req - The request object.
+ * @param {string} req.body.resetToken - The password reset token.
+ * @param {string} req.body.newPassword - The new password for the user.
+ * @param {Object} res - The response object.
+ * @returns {void}
+ */
+exports.resetPassword = async (req, res) => {
+    const { resetToken, newPassword } = req.body;
+    try {
+        const user = await pool.query('SELECT * FROM users WHERE reset_password_token IS NOT NULL');
+
+        if (user.rows.length === 0) {
+            return res.status(400).json({ message: 'Invalid or expired password reset token' });
+        }
+
+        const validToken = await bcrypt.compare(resetToken, user.rows[0].reset_password_token);
+        if (!validToken || user.rows[0].reset_password_expires &lt; Date.now()) {
+            return res.status(400).json({ message: 'Invalid or expired password reset token' });
+        }
+
+        const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+        await pool.query(
+            'UPDATE users SET password = $1, reset_password_token = NULL, reset_password_expires = NULL WHERE id = $2',
+            [hashedNewPassword, user.rows[0].id]
+
+        );
+
+        res.status(200).json({ message: 'Password has been reset' });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+/**
+ * Handles user login functionality.
+ *
+ * @param {Object} req - The request object.
+ * @param {string} req.body.username - The username of the user.
+ * @param {string} req.body.password - The password of the user.
+ * @param {Object} res - The response object.
+ * @returns {void}
+ */
+exports.login = async (req, res) => {
+    const { username, password } = req.body;
+    try {
+        const user = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
+        if (user.rows.length === 0) return res.status(401).json({ message: 'Invalid credentials' });
+
+        const validPassword = await bcrypt.compare(password, user.rows[0].password);
+        if (!validPassword) return res.status(401).json({ message: 'Invalid credentials' });
+
+        const token = jwt.sign({ id: user.rows[0].id, role: user.rows[0].role }, 'your_jwt_secret', { expiresIn: '1h' });
+        res.json({ token, user: { id: user.rows[0].id, role: user.rows[0].role } });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+/**
+ * Handles user registration functionality.
+ *
+ * @param {Object} req - The request object.
+ * @param {string} req.body.username - The username of the new user.
+ * @param {string} req.body.password - The password of the new user.
+ * @param {string} req.body.role - The role of the new user.
+ * @param {string} req.body.institution_id - The institution ID of the new user.
+ * @param {Object} res - The response object.
+ * @returns {void}
+ */
+exports.register = async (req, res) => {
+    const { username, password, role, institution_id } = req.body;
+    try {
+        const hashedPassword = await bcrypt.hash(password, 10);
+        const newUser = await pool.query(
+            'INSERT INTO users (username, password, role, institution_id) VALUES ($1, $2, $3, $4) RETURNING *',
+            [username, hashedPassword, role, institution_id]
+        );
+        res.status(201).json(newUser.rows[0]);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Global</h3><ul><li><a href="global.html#createInstitution">createInstitution</a></li><li><a href="global.html#createResearchTopic">createResearchTopic</a></li><li><a href="global.html#createUser">createUser</a></li><li><a href="global.html#deleteInstitution">deleteInstitution</a></li><li><a href="global.html#deleteResearchTopic">deleteResearchTopic</a></li><li><a href="global.html#deleteUser">deleteUser</a></li><li><a href="global.html#forgotPassword">forgotPassword</a></li><li><a href="global.html#getInstitutionById">getInstitutionById</a></li><li><a href="global.html#getResearchAccessStats">getResearchAccessStats</a></li><li><a href="global.html#getResearchTopicById">getResearchTopicById</a></li><li><a href="global.html#getUserActivityStats">getUserActivityStats</a></li><li><a href="global.html#getUserById">getUserById</a></li><li><a href="global.html#login">login</a></li><li><a href="global.html#manageInstitutions">manageInstitutions</a></li><li><a href="global.html#manageResearchTopics">manageResearchTopics</a></li><li><a href="global.html#manageUsers">manageUsers</a></li><li><a href="global.html#register">register</a></li><li><a href="global.html#resetPassword">resetPassword</a></li><li><a href="global.html#updateInstitution">updateInstitution</a></li><li><a href="global.html#updateResearchTopic">updateResearchTopic</a></li><li><a href="global.html#updateUser">updateUser</a></li><li><a href="global.html#viewSystemAnalytics">viewSystemAnalytics</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 4.0.3</a> on Mon Jun 24 2024 22:19:04 GMT+0200 (Central Africa Time)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>
