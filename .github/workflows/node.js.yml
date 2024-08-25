@@ -33,9 +33,6 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Change directory to TEST
-        run: cd TEST
-
       - name: Run tests using Jest
         run: npm test
 
